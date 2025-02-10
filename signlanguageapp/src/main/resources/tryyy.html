@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" href="./images/icon.png" type="image/x-icon" />
+    <title>Gesture Recognition and Translation</title>
+    <style>
+      /* General Reset and Styling */
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      body {
+        font-family: "Roboto", sans-serif;
+        background: linear-gradient(135deg, #2c3e50, #34495e);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        min-height: 100vh;
+        color: #ecf0f1;
+        text-align: center;
+        overflow: scroll;
+      }
+      h1 {
+        font-size: 2.5rem;
+        margin-bottom: 20px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 15px;
+      }
+      h1 img {
+        width: 50px;
+        height: 50px;
+        filter: drop-shadow(0 0 10px rgba(255, 255, 255, 0.5));
+      }
+      /* Video and Canvas Styling */
+      .video-container {
+        display: flex;
+        justify-content: space-around;
+        width: 100%;
+        max-width: 1300px;
+        margin-bottom: 30px;
+        flex-wrap: wrap;
+        gap: 10px;
+      }
+      video,
+      canvas {
+        width: 100%;
+        max-width: 600px;
+        height: 360px;
+        border-radius: 12px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+      }
+      canvas.output_canvas {
+        background: #000;
+        border: 2px solid #2980b9;
+        box-shadow: 0 0 15px rgba(41, 128, 185, 0.5);
+      }
+      /* Text Area Styling */
+      textarea {
+        width: 100%;
+        max-width: 1300px;
+        height: 120px;
+        padding: 15px;
+        font-size: 1rem;
+        font-family: "Roboto", sans-serif;
+        border-radius: 12px;
+        background: #34495e;
+        color: #ecf0f1;
+        border: none;
+        box-shadow: 0 10px 15px rgba(0, 0, 0, 0.3);
+        resize: none;
+        transition: background 0.3s ease, box-shadow 0.3s ease;
+      }
+      textarea:focus {
+        outline: none;
+        background: #2980b9;
+        box-shadow: 0 0 20px rgba(41, 128, 185, 0.7);
+      }
+      /* Responsive Design */
+      @media only screen and (max-width: 768px) {
+        .video-container {
+          flex-direction: column;
+          align-items: center;
+        }
+        h1 {
+          font-size: 1.8rem;
+          gap: 10px;
+        }
+        video,
+        canvas {
+          max-width: 90%;
+          height: auto;
+        }
+        textarea {
+          width: 90%;
+          max-width: none;
+        }
+      }
+      /* Animation for futuristic feel */
+      @keyframes glow {
+        0% {
+          box-shadow: 0 0 15px rgba(0, 204, 255, 0.6),
+            0 0 30px rgba(0, 204, 255, 0.6);
+        }
+        50% {
+          box-shadow: 0 0 25px rgba(0, 204, 255, 1),
+            0 0 50px rgba(0, 204, 255, 0.7);
+        }
+        100% {
+          box-shadow: 0 0 15px rgba(0, 204, 255, 0.6),
+            0 0 30px rgba(0, 204, 255, 0.6);
+        }
+      }
+      .video-container video,
+      .video-container canvas {
+        animation: glow 1.5s infinite alternate;
+      }
+    </style>
+    <!-- Load Mediapipe and TensorFlow.js libraries -->
+    <script
+      src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"
+      crossorigin="anonymous"
+    ></script>
+    <script
+      src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js"
+      crossorigin="anonymous"
+    ></script>
+    <script
+      src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"
+      crossorigin="anonymous"
+    ></script>
+    <script
+      src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"
+      crossorigin="anonymous"
+    ></script>
+    <!-- TensorFlow.js -->
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.0.0/dist/tf.min.js"></script>
+  </head>
+
+  <body>
+    <h1>
+      <img src="./images/icon.png" alt="" />
+      &nbsp;&nbsp;&nbsp;Gesture Recognition and Translation
+    </h1>
+
+    <div class="video-container">
+      <video class="input_video" autoplay></video>
+      <canvas class="output_canvas"></canvas>
+    </div>
+
+    <textarea
+      id="gestureText"
+      placeholder="Recognized gesture text will appear here..."
+    ></textarea>
+
+    <script type="module">
+      // Get DOM elements.
+      const videoElement = document.getElementsByClassName("input_video")[0];
+      const canvasElement = document.getElementsByClassName("output_canvas")[0];
+      const canvasCtx = canvasElement.getContext("2d");
+      const textArea = document.getElementById("gestureText");
+      let lastGesture = "";
+      let model = null;
+
+      // -------------------------------
+      // Load the TensorFlow.js model.
+      // Replace the URL below with your actual trained model URL.
+      (async function loadGestureModel() {
+        try {
+          model = await tf.loadLayersModel(
+            "C:/Users/LENOVO XI CARBON/Downloads/hagrid-sample-30k-384p/ann_train_val/stop.json"
+          );
+          console.log("Gesture recognition model loaded.");
+        } catch (error) {
+          console.error("Error loading model:", error);
+        }
+      })();
+
+      // Define your gesture labels in the same order as your model's output.
+      // Update these labels to match your trained model's classes.
+      const gestureLabels = [
+        "Fist",
+        "Open Hand",
+        "hello",
+        "goodbye",
+        "please",
+        "thank you",
+        "yes",
+        "no",
+        "sorry",
+        "welcome",
+        "help",
+        "love",
+        "friend",
+        "family",
+        "home",
+        "day",
+        "night",
+        "morning",
+        "evening",
+        "eat",
+        "drink",
+        "water",
+        "food",
+        "coffee",
+        "tea",
+        "hungry",
+        "full",
+        "hot",
+        "cold",
+        "tired",
+        "happy",
+        "sad",
+        "angry",
+        "excited",
+        "bored",
+        "surprised",
+        "confused",
+        "scared",
+        "run",
+        "walk",
+        "jump",
+        "sit",
+        "stand",
+        "stop",
+        "start",
+        "look",
+        "listen",
+        "read",
+        "write",
+        "open",
+        "close",
+        "light",
+        "dark",
+        "left",
+        "right",
+        "up",
+        "down",
+        "fast",
+        "slow",
+        "hard",
+        "soft",
+        "clean",
+        "dirty",
+        "big",
+        "small",
+        "high",
+        "low"
+      ];
+
+      // -------------------------------
+      // Use the loaded model to predict the gesture.
+      async function predictGesture(landmarks) {
+        if (!model) return "";
+        try {
+          // Preprocess: flatten the landmarks to a 1D array.
+          // Each landmark provides x and y coordinates (optionally z too).
+          // Here we use x and y only.
+          const input = landmarks
+            .map((pt) => [pt.x, pt.y])
+            .flat(); // shape: [42]
+
+          // Create a tensor of shape [1, 42].
+          const tensor = tf.tensor([input]);
+          // Run prediction (assumes model outputs probabilities).
+          const prediction = await model.predict(tensor).data();
+          // Get the index of the highest probability.
+          const maxIndex = prediction.indexOf(Math.max(...prediction));
+          // Cleanup tensor to avoid memory leaks.
+          tensor.dispose();
+          return gestureLabels[maxIndex] || "Unknown Gesture";
+        } catch (error) {
+          console.error("Prediction error:", error);
+          return "Unknown Gesture";
+        }
+      }
+
+      // -------------------------------
+      // Process Mediapipe results.
+      async function onResults(results) {
+        canvasCtx.save();
+        canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+        if (results.image) {
+          canvasCtx.drawImage(
+            results.image,
+            0,
+            0,
+            canvasElement.width,
+            canvasElement.height
+          );
+        }
+        if (results.multiHandLandmarks) {
+          for (const landmarks of results.multiHandLandmarks) {
+            drawConnectors(
+              canvasCtx,
+              landmarks,
+              HAND_CONNECTIONS,
+              { color: "#00FF00", lineWidth: 2 }
+            );
+            drawLandmarks(canvasCtx, landmarks, {
+              color: "#FF0000",
+              lineWidth: 1,
+              radius: 3,
+            });
+
+            // Use the ML model to recognize the gesture.
+            const gestureText = await predictGesture(landmarks);
+            if (gestureText !== lastGesture) {
+              lastGesture = gestureText;
+              textArea.value = gestureText;
+            }
+          }
+        }
+        canvasCtx.restore();
+      }
+
+      // -------------------------------
+      // Initialize Mediapipe Hands.
+      const hands = new Hands({
+        locateFile: (file) => {
+          return `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`;
+        },
+      });
+      hands.setOptions({
+        maxNumHands: 2,
+        modelComplexity: 1,
+        minDetectionConfidence: 0.8, // Increased for more stable results
+        minTrackingConfidence: 0.8, // Increased for better tracking stability
+      });
+      hands.onResults(onResults);
+
+      // -------------------------------
+      // Initialize the camera.
+      const camera = new Camera(videoElement, {
+        onFrame: async () => {
+          try {
+            await hands.send({ image: videoElement });
+          } catch (error) {
+            console.error("Error processing frame:", error);
+          }
+        },
+        width: 1280,
+        height: 720,
+      });
+      camera.start();
+    </script>
+  </body>
+</html>

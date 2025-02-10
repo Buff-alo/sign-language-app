@@ -70,3 +70,5 @@ clearBtn.addEventListener('click', () => {
   imageDisplay.innerHTML = ''; // Clear images
   displayedImages.clear(); // Reset displayed images
 });
+
+
