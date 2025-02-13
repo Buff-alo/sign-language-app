@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" href="./images/icon.png" type="image/x-icon" />
+  <title>Gesture Recognition and Translation</title>
+  <style>
+    /* General Reset and Styling */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    body {
+      font-family: 'Roboto', sans-serif;
+      background: linear-gradient(135deg, #2c3e50, #34495e);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      color: #ecf0f1;
+      text-align: center;
+      overflow: auto;
+    }
+    h1 {
+      font-size: 2.5rem;
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 15px;
+    }
+    h1 img {
+      width: 50px;
+      height: 50px;
+      filter: drop-shadow(0 0 10px rgba(255, 255, 255, 0.5));
+    }
+    /* Video and Canvas Styling */
+    .video-container {
+      display: flex;
+      justify-content: center;
+      width: 100%;
+      max-width: 1300px;
+      margin-bottom: 30px;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+    /* Hide the raw video element */
+    .input_video {
+      display: none;
+    }
+    canvas,
+    video {
+      width: 100%;
+      max-width: 600px;
+      height: 360px;
+      border-radius: 12px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+    }
+    canvas.output_canvas {
+      background: #000;
+      border: 2px solid #2980b9;
+      box-shadow: 0 0 15px rgba(41, 128, 185, 0.5);
+    }
+    /* Text Area Styling */
+    textarea {
+      width: 100%;
+      max-width: 1300px;
+      height: 120px;
+      padding: 15px;
+      font-size: 2rem;
+      font-family: 'Roboto', sans-serif;
+      border-radius: 12px;
+      background: #34495e;
+      color: #ecf0f1;
+      border: none;
+      box-shadow: 0 10px 15px rgba(0, 0, 0, 0.3);
+      resize: none;
+      transition: background 0.3s ease, box-shadow 0.3s ease;
+      text-align: center;
+      font-weight: bold;
+      margin-bottom: 10px;
+    }
+    textarea:focus {
+      outline: none;
+      background: #2980b9;
+      box-shadow: 0 0 20px rgba(41, 128, 185, 0.7);
+    }
+    /* Clear Button Styling */
+    button#clearButton {
+      padding: 10px 20px;
+      font-size: 1.2rem;
+      font-family: 'Roboto', sans-serif;
+      border: none;
+      border-radius: 8px;
+      background-color: #e74c3c;
+      color: #fff;
+      cursor: pointer;
+      box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+      transition: background-color 0.3s ease;
+      margin-bottom: 20px;
+    }
+    button#clearButton:hover {
+      background-color: #c0392b;
+    }
+    /* Responsive Design */
+    @media only screen and (max-width: 768px) {
+      .video-container {
+        flex-direction: column;
+        align-items: center;
+      }
+      h1 {
+        font-size: 1.8rem;
+        gap: 10px;
+      }
+      canvas,
+      video {
+        max-width: 90%;
+        height: auto;
+      }
+      textarea {
+        width: 90%;
+        max-width: none;
+      }
+    }
+    /* Animation for futuristic feel */
+    @keyframes glow {
+      0% {
+        box-shadow: 0 0 15px rgba(0, 204, 255, 0.6),
+                    0 0 30px rgba(0, 204, 255, 0.6);
+      }
+      50% {
+        box-shadow: 0 0 25px rgba(0, 204, 255, 1),
+                    0 0 50px rgba(0, 204, 255, 0.7);
+      }
+      100% {
+        box-shadow: 0 0 15px rgba(0, 204, 255, 0.6),
+                    0 0 30px rgba(0, 204, 255, 0.6);
+      }
+    }
+    .video-container canvas {
+      animation: glow 1.5s infinite alternate;
+    }
+  </style>
+  <!-- Mediapipe Scripts -->
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+</head>
+<body>
+  <h1>
+    <img src="./images/icon.png" alt="" />
+    &nbsp;&nbsp;&nbsp;Gesture Recognition and Translation
+  </h1>
+
+  <div class="video-container">
+    <!-- The raw video feed is hidden -->
+    <video class="input_video" autoplay></video>
+    <!-- The canvas shows the drawn landmarks and connectors -->
+    <canvas class="output_canvas"></canvas>
+  </div>
+
+  <textarea id="gestureText" placeholder="Detected gestures will appear here..."></textarea>
+  <button id="clearButton">Clear</button>
+
+  <script type="module">
+    // Get the DOM elements
+    const videoElement = document.getElementsByClassName("input_video")[0];
+    const canvasElement = document.getElementsByClassName("output_canvas")[0];
+    const canvasCtx = canvasElement.getContext("2d");
+    const textArea = document.getElementById("gestureText");
+    const clearButton = document.getElementById("clearButton");
+
+    // Variables for rate limiting (one gesture per second)
+    let lastGesture = "";
+    let lastGestureTime = 0;
+
+    // Function to recognize A–Z gestures and a space gesture with refined (narrow) thresholds
+    function recognizeGesture(landmarks) {
+      if (!landmarks) return "";
+
+      // Key landmark points
+      const palmBase = landmarks[0];
+      const thumbTip = landmarks[4];
+      const indexTip = landmarks[8];
+      const middleTip = landmarks[12];
+      const ringTip = landmarks[16];
+      const pinkyTip = landmarks[20];
+
+      // Calculate distances between key points
+      const distanceThumbToIndex = Math.hypot(thumbTip.x - indexTip.x, thumbTip.y - indexTip.y);
+      const distanceIndexToMiddle = Math.hypot(indexTip.x - middleTip.x, indexTip.y - middleTip.y);
+      const distanceThumbToMiddle = Math.hypot(thumbTip.x - middleTip.x, thumbTip.y - middleTip.y);
+      const distanceThumbToRing = Math.hypot(thumbTip.x - ringTip.x, thumbTip.y - ringTip.y);
+      const distanceThumbToPinky = Math.hypot(thumbTip.x - pinkyTip.x, thumbTip.y - pinkyTip.y);
+      const distanceIndexToPinky = Math.hypot(indexTip.x - pinkyTip.x, indexTip.y - pinkyTip.y);
+      const distanceMiddleToRing = Math.hypot(middleTip.x - ringTip.x, middleTip.y - ringTip.y);
+      const distanceIndexToRing = Math.hypot(indexTip.x - ringTip.x, indexTip.y - ringTip.y);
+      const distanceMiddleToPinky = Math.hypot(middleTip.x - pinkyTip.x, middleTip.y - pinkyTip.y);
+      const distancePalmToPinky = Math.hypot(palmBase.x - pinkyTip.x, palmBase.y - pinkyTip.y);
+
+      // Space Gesture: open hand (fingers spread) – using palm to pinky distance
+      if (distancePalmToPinky > 0.35) return "Space";
+
+      // Refined thresholds for each letter (thresholds are in narrow ranges):
+
+      // A: Very narrow thumb–index and index–middle moderately wide
+      if (distanceThumbToIndex < 0.045 && distanceIndexToMiddle > 0.11 && distanceIndexToMiddle < 0.14)
+        return "A";
+
+      // B: Very narrow index–middle and wide thumb–index
+      if (distanceIndexToMiddle < 0.045 && distanceThumbToIndex > 0.11 && distanceThumbToIndex < 0.15)
+        return "B";
+
+      // C: All thumb distances extremely low (fingers tightly closed in a specific shape)
+      if (
+        distanceThumbToIndex < 0.015 &&
+        distanceThumbToMiddle < 0.015 &&
+        distanceThumbToRing < 0.015 &&
+        distanceThumbToPinky < 0.015
+      )
+        return "C";
+
+      // D: Narrow index–pinky with moderate thumb–pinky distance
+      if (distanceIndexToPinky < 0.045 && distanceThumbToPinky > 0.16 && distanceThumbToPinky < 0.19)
+        return "D";
+
+      // E: Very narrow thumb–middle and index–middle
+      if (distanceThumbToMiddle < 0.025 && distanceIndexToMiddle < 0.025)
+        return "E";
+
+      // F: Narrow thumb–index with index–middle moderately wide
+      if (distanceThumbToIndex < 0.035 && distanceIndexToMiddle > 0.08 && distanceIndexToMiddle < 0.1)
+        return "F";
+
+      // G: Wide thumb–index and distinct middle–ring gap
+      if (distanceThumbToIndex > 0.13 && distanceMiddleToRing > 0.11 && distanceMiddleToRing < 0.15)
+        return "G";
+
+      // H: Distinct thumb–pinky (not too wide) and index–middle moderately wide
+      if (distanceThumbToPinky > 0.18 && distanceThumbToPinky < 0.22 && distanceIndexToMiddle > 0.035 && distanceIndexToMiddle < 0.06)
+        return "H";
+
+      // I: Very narrow index–middle (minimal separation)
+      if (distanceIndexToMiddle < 0.025)
+        return "I";
+
+      // J: Wide thumb–pinky and very narrow index–middle
+      if (distanceThumbToPinky > 0.21 && distanceThumbToPinky < 0.25 && distanceIndexToMiddle < 0.025)
+        return "J";
+
+      // K: Distinct thumb–ring with very narrow index–middle
+      if (distanceThumbToRing > 0.13 && distanceThumbToRing < 0.17 && distanceIndexToMiddle < 0.025)
+        return "K";
+
+      // L: Wide thumb–pinky with very narrow index–ring
+      if (distanceThumbToPinky > 0.19 && distanceThumbToPinky < 0.23 && distanceIndexToRing < 0.025)
+        return "L";
+
+      // M: Narrow thumb–index and narrow middle–ring
+      if (distanceThumbToIndex < 0.045 && distanceMiddleToRing < 0.035)
+        return "M";
+
+      // N: Narrow thumb–index and moderate middle–ring
+      if (distanceThumbToIndex < 0.045 && distanceMiddleToRing >= 0.035 && distanceMiddleToRing < 0.055)
+        return "N";
+
+      // O: Wide thumb–index and wide middle–ring
+      if (distanceThumbToIndex > 0.16 && distanceMiddleToRing > 0.13)
+        return "O";
+
+      // P: Extremely narrow thumb–index with moderate thumb–ring
+      if (distanceThumbToIndex < 0.015 && distanceThumbToRing > 0.09 && distanceThumbToRing < 0.12)
+        return "P";
+
+      // Q: Narrow thumb–index and moderate thumb–pinky
+      if (distanceThumbToIndex < 0.025 && distanceThumbToPinky > 0.11 && distanceThumbToPinky < 0.15)
+        return "Q";
+
+      // R: Moderate thumb–index with distinct index–ring gap
+      if (distanceThumbToIndex > 0.07 && distanceIndexToRing > 0.045 && distanceIndexToRing < 0.09)
+        return "R";
+
+      // S: Narrow thumb–middle and narrow middle–ring
+      if (distanceThumbToMiddle < 0.045 && distanceMiddleToRing < 0.045)
+        return "S";
+
+      // T: Wide index–pinky (with a clear gap)
+      if (distanceIndexToPinky > 0.11 && distanceIndexToPinky < 0.15)
+        return "T";
+
+      // U: Wide thumb–index and wide middle–ring
+      if (distanceThumbToIndex > 0.11 && distanceMiddleToRing > 0.16 && distanceMiddleToRing < 0.2)
+        return "U";
+
+      // V: Wide thumb–index with narrow middle–ring
+      if (distanceThumbToIndex > 0.13 && distanceMiddleToRing < 0.08)
+        return "V";
+
+      // W: Wide thumb–middle and narrow index–ring
+      if (distanceThumbToMiddle > 0.11 && distanceIndexToRing < 0.08)
+        return "W";
+
+      // X: Extremely narrow thumb–index and thumb–ring
+      if (distanceThumbToIndex < 0.025 && distanceThumbToRing < 0.035)
+        return "X";
+
+      // Y: Wide index–pinky and moderate thumb–middle
+      if (distanceIndexToPinky > 0.16 && distanceIndexToPinky < 0.20 && distanceThumbToMiddle > 0.11 && distanceThumbToMiddle < 0.15)
+        return "Y";
+
+      // Z: Very wide thumb–index with very narrow middle–pinky
+      if (distanceThumbToIndex > 0.19 && distanceMiddleToPinky < 0.045)
+        return "Z";
+
+      return "Unknown";
+    }
+
+    // Process the Mediapipe results
+    function onResults(results) {
+      canvasCtx.save();
+      canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+      if (results.image) {
+        canvasCtx.drawImage(results.image, 0, 0, canvasElement.width, canvasElement.height);
+      }
+      const now = Date.now();
+      if (results.multiHandLandmarks) {
+        for (const landmarks of results.multiHandLandmarks) {
+          // Draw slimmer connectors and landmarks for a refined look
+          drawConnectors(canvasCtx, landmarks, HAND_CONNECTIONS, { color: "#00FF00", lineWidth: 1 });
+          drawLandmarks(canvasCtx, landmarks, { color: "#FF0000", lineWidth: 1, radius: 2 });
+
+          const gesture = recognizeGesture(landmarks);
+          // Accept a new (non-"Unknown") gesture only if at least 1 second has passed
+          if (gesture !== lastGesture && gesture !== "Unknown" && now - lastGestureTime >= 1000) {
+            lastGestureTime = now;
+            lastGesture = gesture;
+            if (gesture === "Space") {
+              textArea.value += " ";
+            } else {
+              textArea.value += gesture + " ";
+            }
+          }
+        }
+      }
+      canvasCtx.restore();
+    }
+
+    // Setup Mediapipe Hands
+    const hands = new Hands({
+      locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`,
+    });
+    hands.setOptions({
+      maxNumHands: 2,
+      modelComplexity: 1,
+      minDetectionConfidence: 0.8,
+      minTrackingConfidence: 0.8,
+    });
+    hands.onResults(onResults);
+
+    // Setup the camera using the hidden video element
+    const camera = new Camera(videoElement, {
+      onFrame: async () => {
+        try {
+          await hands.send({ image: videoElement });
+        } catch (error) {
+          console.error("Error processing frame:", error);
+        }
+      },
+      width: 1280,
+      height: 720,
+    });
+    camera.start();
+
+    // Clear button event listener
+    clearButton.addEventListener("click", () => {
+      textArea.value = "";
+      lastGesture = "";
+      lastGestureTime = 0;
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" href="./images/icon.png" type="image/x-icon">
+    <title>Gesture Recognition and Translation</title>
+    <link rel="stylesheet" href="cam-styles.css">
+
+</head>
+<body>
+    <h1>
+        <img src="./images/icon.png" alt="" />
+        &nbsp;&nbsp;&nbsp;Gesture Recognition and Translation
+    </h1>
+    <button id="webcamButton">Enable Webcam</button>
+    <!--<canvas id="output_canvas"></canvas>-->
+
+    <div class="video-container">
+        <video id="input_video" class="input_video" autoplay playsinline></video>
+        <canvas id="output_canvas" class="output_canvas"></canvas>
+    </div>
+
+    <p id="gesture_output"></p>
+    
+    <script src="cam-script.js"></script>
+    <script type="module" src="gesture_recognizer.js"></script>
+</body>
+</html>
