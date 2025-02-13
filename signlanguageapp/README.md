@@ -12,7 +12,7 @@ Train your speech to sign model in the script file and add the corresponding ima
 
 To train your gesture recognition model follow the steps in this link:: https://ai.google.dev/edge/mediapipe/solutions/customization/gesture_recognizer and replace the .task file in the project directory with your new .task file
 
-This model only supports only six sign gestures thus: ILoveyou, thumbs Up, thumbs down, pointing up, pointing down, hello. 
+This model only supports only six sign gestures thus: ILoveyou, thumbs Up, thumbs down, pointing up, pointing down, hello and also recognizes only one hand at a time unlike our previous versions thats recognized hands simultaneously.
 
 
 Make sure you have your internet connected for etter experirence.
