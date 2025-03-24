@@ -67,9 +67,18 @@ public class MainActivity {
         try {
             if (Desktop.isDesktopSupported() && Desktop.getDesktop().isSupported(Desktop.Action.BROWSE)) {
                 Desktop.getDesktop().browse(new URI(url));
-            } else {
-                System.err.println("Desktop browsing not supported.");
+            } 
+            else {
+                System.err.println("Desktop browsing not supported. Trying xdg-open...");
+                try {
+                    ProcessBuilder processBuilder = new ProcessBuilder("xdg-open", url);
+                    processBuilder.start();
+                } catch (IOException ioEx) {
+                    ioEx.printStackTrace();
+                    System.err.println("Failed to open browser using xdg-open.");
+                }
             }
+            
         } catch (Exception e) {
             e.printStackTrace();
             System.err.println("Error opening browser: " + e.getMessage());
