@@ -6,23 +6,34 @@
     <link rel="icon" href="./images/icon.png" type="image/x-icon">
     <title>Gesture Recognition and Translation</title>
     <link rel="stylesheet" href="cam-styles.css">
-
 </head>
 <body>
     <h1>
-        <img src="./images/icon.png" alt="" />
+        <img src="./images/icon.png" alt="App Icon" />
         &nbsp;&nbsp;&nbsp;Gesture Recognition and Translation
     </h1>
     <button id="webcamButton">Enable Webcam</button>
-    <!--<canvas id="output_canvas"></canvas>-->
 
     <div class="video-container">
         <video id="input_video" class="input_video" autoplay playsinline></video>
         <canvas id="output_canvas" class="output_canvas"></canvas>
     </div>
 
-    <p id="gesture_output"></p>
+    <div id="status">Loading model...</div>
+
+    <!-- Debounce progress bar -->
+    <div id="debounceContainer">
+        <div id="debounceProgress"></div>
+    </div>
+  
+    <p id="gesture_output">Sentence :</p>
     
+    <div>
+        <button id="clearButton">Clear Sentence</button>
+    </div>
+    <!-- Add missing demos section -->
+<div id="demos" class="invisible"></div>
+
     <script src="cam-script.js"></script>
     <script type="module" src="gesture_recognizer.js"></script>
 </body>
